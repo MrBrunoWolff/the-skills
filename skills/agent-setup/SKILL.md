@@ -29,7 +29,7 @@ On re-runs, every phase below outputs a **diff against current state**, not a fr
 ## Phase 1 — Skills
 
 Follow [recommend.md](recommend.md) end-to-end: load the vetted catalog (live-fetched from
-wolff-skills) → detect stack(s) → diff against installed skills → compose one-skill-per-concern
+the-skills) → detect stack(s) → diff against installed skills → compose one-skill-per-concern
 within budget → present plan → confirm → install. This phase also runs standalone when the user
 only asks for skill recommendations.
 

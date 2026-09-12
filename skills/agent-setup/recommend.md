@@ -9,9 +9,8 @@ whole firehose.
 The catalog is the single source of truth. Resolve it in this order:
 
 1. **Fetch live** (preferred — always fresh):
-   `https://raw.githubusercontent.com/WolffSolutions/wolff-skills/main/skill-sources.md`
-2. **Local fallback** (offline / developing inside wolff-skills): `skill-sources.md` at the
-   wolff-skills repo root.
+   `https://raw.githubusercontent.com/MrBrunoWolff/the-skills/main/skill-sources.md`
+2. **Local fallback** (offline / developing inside the-skills): `skill-sources.md` at the repo root.
 
 Use the **Recommendation matrix** section — it has the concern → preferred-skill → tier → scope
 mapping. The prose tables above it are human context.
@@ -89,7 +88,7 @@ repo — that defeats the one-per-concern curation. After installing, verify the
 
 ## Out of scope for this phase
 
-- Sources outside the catalog (propose catalog additions via a PR to wolff-skills instead).
+- Sources outside the catalog (propose catalog additions via a PR to the-skills instead).
 - Agents, hooks, and slash commands that some catalog repos also ship (e.g. addyosmani's personas) —
   mention they exist, but this phase installs skills only.
 - Removing or updating installed skills (`npx skills@latest update -y` is the user's call).

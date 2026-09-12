@@ -21,7 +21,7 @@ Legend: ⭐ = authoritative / first-party source · 🗂️ = curated index (a l
 
 | Repo | Link | What it is |
 |------|------|------------|
-| ⭐ WolffSolutions/wolff-skills | https://github.com/WolffSolutions/wolff-skills | Your own skills repo (`agent-setup`, `update-setup`, this catalog). |
+| ⭐ MrBrunoWolff/the-skills | https://github.com/MrBrunoWolff/the-skills | Your own skills repo (`agent-setup`, `update-setup`, this catalog). |
 | mattpocock/skills | https://github.com/mattpocock/skills | Matt Pocock's TS/engineering + productivity skills (`tdd`, `triage`, `grill-me`, `handoff`, `write-a-skill`, …). |
 | addyosmani/agent-skills | https://github.com/addyosmani/agent-skills | Addy Osmani — production-grade engineering skills (`/spec`, `/plan`, `/build`, `/review`, `/ship`), agent personas, hooks. |
 | safishamsi/graphify | https://github.com/safishamsi/graphify | Turns a code/docs/schema folder into a queryable knowledge graph (tree-sitter + LLM); 25 languages. |
@@ -106,7 +106,16 @@ Machine-friendly section consumed by the `agent-setup` skill (Phase 1, see
 | issue breakdown | `to-issues` | mattpocock/skills | general | project | — |
 | architecture review | `improve-codebase-architecture` | mattpocock/skills | general | project | — |
 | codebase knowledge graph | `graphify` | safishamsi/graphify | general (large repos) | project | — |
-| dep + skill refresh | `update-setup` | WolffSolutions/wolff-skills | general | project | — |
+| dep + skill refresh | `update-setup` | MrBrunoWolff/the-skills | general | project | — |
+| web fleet roster + repo profile | `wf-web-list-fleet` | MrBrunoWolff/the-skills | web (fleet) | project | — |
+| web quality suite runner | `wf-web-check-quality` | MrBrunoWolff/the-skills | web | project | — |
+| web PR flow + reviewer charter | `wf-web-create-pr` / `wf-web-code-reviewer` | MrBrunoWolff/the-skills | web | project | — |
+| new web repo scaffold | `wf-web-create-repo` / `wf-web-create` | MrBrunoWolff/the-skills | web | project | — |
+| PWA setup | `wf-web-setup-pwa` / `wf-web-pwa` | MrBrunoWolff/the-skills | web (PWA) | project | — |
+| fleet dep + skill refresh | `wf-web-update-deps` / `-fix` / `wf-web-update-skills` | MrBrunoWolff/the-skills | web (fleet) | project | `update-setup` for a single repo |
+| fleet git resync | `wf-web-resync` | MrBrunoWolff/the-skills | web (fleet) | project | — |
+| agent-powered security scan | `wf-web-scan-security` / `wf-web-deepsec` | MrBrunoWolff/the-skills | web | project | — |
+| agentic readiness | `wf-web-agentic` | MrBrunoWolff/the-skills | web | project | — |
 | skill authoring | `write-a-skill` | mattpocock/skills | general | global | anthropics skill-creator |
 | terse output mode | `caveman` | mattpocock/skills | general | global | — |
 | session handoff | `handoff` | mattpocock/skills | general | global | — |
