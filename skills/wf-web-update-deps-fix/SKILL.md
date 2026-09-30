@@ -25,8 +25,9 @@ Build the set of repos where any gate came back non-clean. Fully green repos nee
 fixing what the *bump* surfaced — not repairing breakage that already existed, and not chasing
 ghosts.
 
-Re-run the failing check on the clean committed baseline — stash or a pristine checkout, then
-install, then **prune**, then the check:
+Re-run the failing check in a separate checkout of the starting committed
+baseline. Install that baseline's dependencies and reconcile its installed tree
+before checking. Preserve the author's working tree; do not stash or reset it.
 
 | Bucket | Test | What to do |
 |---|---|---|
@@ -34,19 +35,22 @@ install, then **prune**, then the check:
 | **Pre-existing** | It **also fails on the clean baseline** | Not caused by the update. **Do not delegate** and **do not attribute it to the bump.** Report it in its own column so the user decides separately. |
 | **Introduced** | Green on the baseline, red after the bump | This is what the fixer agents are for. |
 
-The prune step matters: `bun install` never removes a package that dropped out of the lockfile, so
+Check installed-tree reconciliation with the selected manager rather than assuming
+all frozen installs leave orphaned packages. If the supported prune command finds orphans,
 a stale `node_modules` can be the entire cause of a failure that looks like a code problem.
 
-Note the prerelease case from `[[wf-web-update-deps]]` §1a: a typecheck error complaining that a
-config key "does not exist in type" usually means the framework landed on a version whose type
-defs lack a prerelease key. Reconcile the pin per §1a rather than editing the config — and if it
-reproduces on the baseline, it is pre-existing.
+If a framework update rejects a config key, first confirm the intended stable or
+prerelease channel. Preserve deliberate pins. Then inspect the entire affected
+config section against the installed schema: a key may have been removed or
+become the default. Do not delete only the first failing key without checking
+the others. A failure that reproduces on the baseline is pre-existing.
 
 ### 3. Delegate fixing — one agent per affected repo
 
 For each repo with **introduced** failures, launch the **`wf-web-deps-fixer`** agent. Repos are
-independent working directories, so spawn the agents **in parallel** (one message, multiple
-calls) — no worktree isolation is needed since no two agents touch the same repo.
+independent working directories, so delegation can run per repo when available
+and permitted by the session. Keep the parent's model choice. Otherwise fix
+each repo inline; do not require an agent definition to complete the task.
 
 > If that agent is not installed (agents are a manual install — see the repo README), do the
 > triage inline per repo, following the same boundaries. Say which mode you used.
@@ -62,11 +66,12 @@ Pass each agent:
 
 ### 4. Re-verify
 
-After the agents return, re-run the suite **once** per fixed repo, pruning first so orphans do not
-distort the result:
+After repairs, use `wf-web-check-quality` once per affected repo. Run the
+detected manager and script names; inspect prune before using it in nested
+workspaces. Reuse results and compare health scores as well as exit codes.
 
 ```bash
-bun prune
+bun prune # only when supported and appropriate for this layout
 bun run check     # or the repo's individual gates
 bun test
 bun run doctor
@@ -79,10 +84,10 @@ bun run doctor
 Per repo, summarise what the agent fixed and what it deferred for human judgment (ambiguous
 removals, behaviour-changing refactors). Keep the sections from `[[wf-web-update-deps]]`:
 
-- **⚠️ Prerelease alerts** — repos on a prerelease pin, the exact version, and whether the age
-  gate was **bypassed** (un-aged → verify manually).
+- **Prerelease holds** — unchanged pins and any channel move explicitly requested
+  by the user. State whether the guard remained active.
 - **Common-deps matrix** — cross-fleet drift, or a one-line "all in sync".
-- **🔒 Advisories** — counts by severity, criticals named. Report-only.
+- **Advisories** — counts by severity, criticals named. Report-only.
 - **Proposed dupes** — dry-run counts, any proposed **downgrade** spelled out. Never applied.
 - **Workspace-spec integrity** (monorepos) — no `workspace:` → registry rewrite, no peer range
   flattened to `"latest"`.

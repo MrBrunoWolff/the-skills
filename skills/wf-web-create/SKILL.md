@@ -17,9 +17,9 @@ here looks stale. The templates below describe *shape*; the reference repo carri
 
 ## Stack
 
-| Layer | Choice | Why it is not negotiable within a fleet |
+| Layer | Choice | When to use this starter |
 |---|---|---|
-| Package manager | **bun** | One manager per fleet. Mixed managers produce two lockfiles, which trips health checks and breaks CI reproducibility. |
+| Package manager | **bun** | Use this Bun starter when requested. Other repositories may use their own managers. |
 | Node engine | `"node": "24.x"` in `engines` | See the warning below — this field has a deployment side effect. |
 | Framework | Next.js (App Router) with Turbopack | |
 | React | 19 with the React Compiler (`reactCompiler: true`) | |
@@ -32,20 +32,13 @@ here looks stale. The templates below describe *shape*; the reference repo carri
 | E2E | Playwright (optional per repo) | |
 | Deploy | Vercel or Cloudflare Workers | Detected from `.vercel/project.json` or `wrangler.jsonc`. |
 
-Consistency across a fleet is the point — a shared toolchain is what makes one command able to
-check every repo. Deviate deliberately and record why, not by accident.
+Use each repository’s declared toolchain for existing projects. Shared workspace
+commands resolve those differences rather than requiring a single stack.
 
-> ### ⚠️ `engines` has a deployment side effect
-> Vercel resolves `engines` **major-only** and uses it to pick a build image. Adding a `bun`
-> entry moves the project onto the bun build image, where `node` is absent from `PATH` and the
-> build dies with an opaque `Expected CommonJS module to have a function wrapper`. Keep
-> `engines` as `{ "node": "24.x" }` and express the bun version through `packageManager`
-> instead — which is also where `oven-sh/setup-bun` reads it from via
-> `bun-version-file: package.json`, making it the single lever that sets CI's bun version.
-> Likewise `vercel.json` never carries a `bunVersion` key: bun is the installer, node is the
-> runtime.
-
----
+> Check deployment runtime support
+> Choose the Node engine and runtime from the deployment target’s current documentation.
+> Keep the Bun package-manager version in `packageManager`. Verify platform configuration
+> fields against its schema; do not infer runtime support from an old build-image failure.
 
 ## File inventory
 
@@ -257,7 +250,7 @@ points inside `.agents/skills/…`.
 
 ```markdown
 <!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Read the installed Next.js documentation
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from
 your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing
@@ -291,9 +284,6 @@ For preview deployments that are not behind platform SSO. Skip it for a public s
 `src/lib/auth.ts`:
 
 ```ts
-const STATIC_ASSET_PATTERN =
-  /\.(?:jpg|jpeg|png|gif|svg|webp|ico|css|js|mjs|woff|woff2|ttf|eot|map|txt)$/i;
-
 export const AUTH_COOKIE_NAME = 'app-auth-token';
 
 export function getAppPassword() {
@@ -319,15 +309,15 @@ export function isStaticAssetPath(pathname: string) {
     pathname === '/robots.txt' ||
     pathname === '/theme-init.js' ||
     pathname === '/sw.js' ||
-    pathname === '/sw.mjs' ||
-    STATIC_ASSET_PATTERN.test(pathname)
+    pathname === '/sw.mjs'
   );
 }
 ```
 
 `src/proxy.ts` contract:
 
-1. `APP_PASSWORD` empty → forward (gate disabled, e.g. local dev).
+1. Require `APP_PASSWORD` when the deployed preview gate is enabled. Missing configuration
+   fails closed; local development may disable the gate explicitly.
 2. Pass through `/auth`, the auth API routes, and `isStaticAssetPath` matches.
 3. Compare the `AUTH_COOKIE_NAME` cookie against `await hashPassword(getAppPassword())`.
 4. API mismatch → JSON 401. Page mismatch → redirect to `/auth?returnTo=<original>`.
@@ -340,7 +330,7 @@ anything behind it that would matter if the password leaked.
 
 Test it (`AUTH_COOKIE_NAME`, `getAppPassword` trimming and empty default, `hashPassword`
 producing 64 hex chars, `isStaticAssetPath` true for `/icons/x.png` / `/sw.mjs` /
-`/manifest.json` and false for `/` and `/auth`). It is the one piece of security surface in the
+`/manifest.json` and false for `/`, `/auth`, `/api/private.txt`, and `/account/export.js`). It is the one piece of security surface in the
 repo, and the test is what stops a refactor quietly opening it.
 
 ---

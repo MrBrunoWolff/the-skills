@@ -1,122 +1,85 @@
 ---
 name: wf-web-update-skills
-description: Skills-only refresh across a fleet of repos — npx skills update in each, detect skills that failed to update, distinguish transient failures from genuine upstream renames and removals, attempt fixes (retry, targeted re-update, resync, reinstall, lock restore), prune orphaned lock entries, then re-verify and report. No dependency changes. Leaves changes uncommitted.
+description: Refresh installed agent skills in selected repositories, verify failed updates against their upstream source, restore the declared selection where one exists, and report changes without modifying application dependencies or committing.
 ---
 
-# wf-web-update-skills — refresh agent skills, then fix what failed
+# Refresh installed agent skills
 
-Refreshes **only** the vendored `.agents/skills/` bundle across the fleet, detects skills that
-failed, **attempts to fix them**, re-verifies and reports.
+Resolve repository membership through `wf-web-list-fleet`. An explicit workspace
+manifest limits membership; do not expand it by scanning siblings. Report missing
+checkouts. Read each selected repo's instructions and skill lock before changing
+anything. Process repositories sequentially and preserve unrelated work.
 
-This is the skills-only counterpart to `[[wf-web-update-deps-fix]]` — it does **not** touch
-`package.json`, the lockfile, or run the quality suite. **Runs to completion without prompting.**
-Changes are left **uncommitted**.
+## Update and inspect
 
-## The fleet
+Use the repository's pinned skills CLI when it has one; otherwise use the current
+CLI and record its version. Check its help before relying on optional or
+experimental commands. The supported project update is:
 
-Resolved per `[[wf-web-list-fleet]]`. Skills handling is identical for every repo — there are no
-per-repo special cases here (those are deps-only). Repo-name tokens in `$ARGUMENTS` scope the run;
-missing repos are skipped silently.
-
-## Preflight
-
-```bash
-command -v npx >/dev/null 2>&1 || { echo "ERROR: npx (Node.js) is required for the skills CLI"; exit 1; }
+```sh
+npx skills@latest update --project --yes
 ```
 
-Subcommands used: `update [skills...] -y` (alias `upgrade`), `list`/`ls`, `add <pkg>`,
-`remove [skills]`, `experimental_sync` (re-sync installed skills into agent dirs),
-`experimental_install` (restore from `skills-lock.json`). `-p`/`--project` scopes to project
-skills, `-g`/`--global` to global; default `-y` auto-detects.
+Capture the exit code and complete output. If the command unexpectedly prompts,
+report the failure instead of answering with an invented choice. A deletion-check
+warning and a failed skill update are separate results; record both.
 
-## Workflow
+Retry once when a transient failure is plausible. Repeated failure establishes
+persistence, not deletion: authentication, network errors, and rate limits can
+also persist. Verify the source is accessible, then list its current skills and
+look for the expected path. For private sources, a 404 can mean missing access.
+Do not call it removed until a successful source lookup establishes absence.
 
-Process repos **one at a time, sequentially** — the CLI writes into shared agent directories and
-concurrent runs race.
+## Repair within the declared selection
 
-### 1. Update
+- Reinstall an unchanged skill from its recorded source when that source still
+  publishes it. Preserve the selected agent types and project scope.
+- For a confirmed rename, identify the successor by purpose and source. Show the
+  concrete old-to-new mapping before applying it. Proceed when the user's request
+  covers that replacement; ask when the mapping or intended behavior is uncertain.
+- Keep a removed skill locally while its replacement or retirement is unresolved.
+  A failed update alone does not authorize deleting a useful installed skill.
+- Inspect the installed CLI's behavior after removal. If a stale lock entry remains,
+  remove only that confirmed retired entry after checking every configured agent
+  store. Do not prune all missing directories: an incomplete install is recoverable.
+- Do not hand-edit vendored skill content to hide failures. Fix the source, selection,
+  or install links. Do not remove and reinstall a working source under a different
+  name merely to make the update report green.
 
-```bash
-npx skills@latest update -y
+Use explicit names when installing a subset:
+
+```sh
+npx skills@latest add <owner/repo> --skill <name-a> --skill <name-b> --yes
 ```
 
-Capture the full output **and** the exit code. If it prompts despite `-y`, treat that as a failure
-and record it — do not hand-answer.
+Omit broad `--all` or all-agent selection. Preserve the repository's declared agent
+types; pass explicit `--agent` values when configured. Do not use comma-separated
+skill names. Re-sync or lock restoration is optional and only applies when the
+installed CLI documents the relevant command.
 
-### 2. Detect failures
+## Restore the intended setup
 
-Classify each line:
+An update refreshes installed skills; it does not add missing declared skills or
+retire ones the repo no longer wants. If the repo has a setup manifest or documented
+sync helper, use that source of truth and its supported check/apply modes. Do not
+invent one or copy private configuration into this public skill.
 
-- **`✓ Updated <skill>`** → success.
-- **`✗ Failed to check for deleted skills from <source>`** → a **soft** warning about the
-  deletion-reconciliation probe for one source, usually a rate limit or network blip. The skill
-  itself often still updates on the same run. It is only a real failure if it persists after a
-  retry.
-- **`✗ Failed to update <skill>`, a non-zero exit, a stack trace, or a hang** → a **hard** failure.
+Report a source collision rather than overwriting an installed skill from another
+source. Preserve unrelated MCP servers, permissions, hooks, and local settings.
+For generated instruction blocks, edit the canonical source; reject a stale source
+that would replace newer generated content. Do not force a stale template through.
 
-Track soft and hard separately. A repo with only `✓` lines and exit 0 is clean — skip the fix
-phase for it.
+For workspace-managed links without a skills lock, refresh the source checkout
+under the user's normal Git workflow and run the workspace's setup helper to
+reconcile its selection. Do not replace those links with a second install scheme.
 
-> **Do not guess whether a failure is transient.** Re-run once. If the **same** skills fail both
-> times, it is deterministic — a real upstream rename or removal. If the set **shifts**, it was
-> transient. This one distinction decides whether you reconcile or wait.
+## Verify and report
 
-### 3. Attempt fixes (only for repos with failures)
+Re-run the update or documented sync check once after a repair. Report per repo:
+updated skills, resolved transient warnings, confirmed renames/removals, source
+collisions, manifest drift, and unresolved failures. Describe the evidence for each
+classification in plain English. Leave changes uncommitted and do not run app
+quality checks as part of a skills-only request.
 
-In order, re-checking after each; stop as soon as the repo is clean:
-
-1. **Retry once** — soft warnings are usually transient:
-   `npx skills@latest update -y`
-2. **Targeted re-update** of just the failing skill(s):
-   `npx skills@latest update <skill> -y`
-3. **Re-sync agent dirs** — if a skill updated in `node_modules` but the agent-dir copy is stale:
-   `npx skills@latest experimental_sync`
-4. **Reinstall** a stubbornly broken skill — find its source via `npx skills@latest list`, then:
-   ```bash
-   npx skills@latest remove <skill>
-   npx skills@latest add <owner/repo> -s <skill> -y
-   ```
-5. **Restore from lockfile** if the bundle is inconsistent:
-   `npx skills@latest experimental_install`
-
-⚠️ **`skills remove` leaves the entry in `skills-lock.json`.** That orphan is what makes `update`
-keep retrying and re-reporting the failure. After any removal, prune every lock entry whose
-directory no longer exists — this is the step that actually stops the failures:
-
-```bash
-node -e 'const fs=require("fs"),p=require("path");const f="./skills-lock.json";
-  const j=JSON.parse(fs.readFileSync(f,"utf8"));
-  for(const k of Object.keys(j.skills)) if(!fs.existsSync(p.join(".agents/skills",k))) delete j.skills[k];
-  fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n")'
-```
-
-**Never hand-edit files under `.agents/skills/` to force a pass** — that masks the failure and the
-next update overwrites it anyway. If none of the above clears a hard failure, leave it and report
-it: it is almost certainly an upstream skill-repo issue, not something to paper over locally.
-
-**When reinstalling, three `skills add` rules apply** (full detail in `[[wf-web-update-deps]]` §2):
-never `-a '*'` · repeated `-s` for multiple skills, never a comma list · `-s '*'` installs
-everything the source ships, which may exceed what you tracked.
-
-### 4. Re-verify
-
-Re-run `npx skills@latest update -y` once per fixed repo and confirm only `✓` lines (or an
-idempotent no-op) with exit 0.
-
-## Final report
-
-| Repo | Skills updated | Soft warnings | Hard failures | Fixed | Still needs you |
-
-Short counts (`12 updated`, `1 soft (deletion probe)`, `0 hard`). For each repo that needed
-fixing, one line on what cleared it (retry / targeted / resync / reinstall / lock restore).
-Distinguish **soft transient** warnings from **hard** failures that persisted — collapsing the two
-makes the report unreadable next time.
-
-End with: **changes are uncommitted** — review per repo and open PRs with `[[wf-web-create-pr]]`.
-
-## Cross-references
-
-- `[[wf-web-update-deps]]` — deps + skills together, with the full reconciliation flow
-- `[[wf-web-update-deps-fix]]` — that, plus auto-fixing quality findings
-
-User intent / overrides: $ARGUMENTS
+Related workflows: `wf-web-update-deps` includes this pass; `wf-web-create-pr`
+reviews the resulting changes. User scope and overrides: $ARGUMENTS.

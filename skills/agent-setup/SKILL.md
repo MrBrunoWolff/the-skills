@@ -8,14 +8,16 @@ metadata:
 
 # agent-setup — make a repo agent-ready
 
-Run an opt-in, phase-by-phase setup. **Present each phase's plan, get confirmation, then apply.**
-The user may skip any phase. Never apply anything unconfirmed.
+Assess the repository and present a concrete setup plan. Apply the portions
+already authorized by the user's request. Ask only for missing preferences or
+changes outside that scope, such as new permission policy or global installs.
+The user may skip any phase; do not request the same authorization repeatedly.
 
 ## Phase 0 — Assess current state
 
 Before proposing anything, read what exists:
 
-- `CLAUDE.md` (root and `.claude/`) — does it exist? Does it already have `## Context management`
+- `AGENTS.md` and `CLAUDE.md` (root and `.claude/`) — do they exist? Do they already have `## Context management`
   or `## Quality gates` sections?
 - Quality tooling — `package.json` lint/typecheck/test/doctor scripts, `ruff`/`mypy`/`clippy` configs.
 - `.claude/settings.json` / `.claude/settings.local.json` — existing permissions and hooks?
@@ -35,9 +37,10 @@ only asks for skill recommendations.
 
 ## Phase 2a — Context-management playbook → CLAUDE.md
 
-Insert the playbook from [context-playbook.md](context-playbook.md) into the repo's `CLAUDE.md`
-under a `## Context management` heading (create `CLAUDE.md` if absent; replace the section if it
-already exists from a previous run).
+Put shared guidance from [context-playbook.md](context-playbook.md) in the repo's
+canonical instruction file, preferably AGENTS.md when several agents use it.
+CLAUDE.md can import `@AGENTS.md` and add Claude-specific guidance. Preserve the
+existing instruction structure and avoid maintaining two copies of shared rules.
 
 **Be honest about enforcement tiers when presenting this phase:**
 
@@ -52,7 +55,7 @@ Tailor the playbook lightly to the repo (e.g. reference the repo's actual test c
 
 ## Phase 2b — Quality gates → CLAUDE.md
 
-Write a `## Quality gates` section into `CLAUDE.md` so **every future agent** runs the repo's
+Write a `## Quality gates` section into the canonical instruction file so future agents run the repo's
 quality checks before committing — this is the durable, standing guardrail, not a one-time scan.
 
 Procedure (see [quality-gates.md](quality-gates.md) for the per-stack reference):
@@ -82,7 +85,6 @@ permission-prompt fatigue. Baseline (tailor to the detected stack):
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
-      "Bash(git branch:*)",
       "Bash(ls:*)",
       "Bash(rg:*)",
       "Bash(find:*)"
@@ -197,9 +199,9 @@ Offer a **modest** set — hooks run on every matching event, so each one must e
    Default to **soft** (the CLAUDE.md guide from Phase 2b) unless the user explicitly wants the hook
    — Stop hooks fire on every turn end and slow the loop.
 
-Present each hook individually; merge into existing `settings.json` hooks without clobbering.
-If `.claude/state/` is introduced, add it to `.gitignore` (ask first — some teams want handoff
-docs committed).
+Describe the selected hooks together and merge into existing settings without
+clobbering unrelated entries. Keep generated local session state ignored unless
+the repository deliberately versions handoff documents.
 
 ## Phase 4 — Supply-chain guards
 

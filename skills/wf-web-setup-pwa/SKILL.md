@@ -52,10 +52,10 @@ Plus: two `package.json` scripts, a `sharp` devDependency, the `layout.tsx` meta
 
 ## Inputs to ask the user
 
-One batched `AskUserQuestion`:
+Use existing project values and the user’s choices. Ask only for missing details:
 
-- **App full name** — e.g. "Wolff Solutions"
-- **PWA `short_name`** — must be ≤ 12 characters. Confirm before writing; if their answer is
+- **App full name** — e.g. "My App"
+- **PWA `short_name`** — preferably ≤ 12 characters. Use supplied values; if their answer is
   longer, propose a shortened form rather than silently truncating.
 - **Description** — one line.
 - **Theme colour** — also the background colour; the two must match. Offer the repo's existing
@@ -87,12 +87,11 @@ One batched `AskUserQuestion`:
    `/sw.mjs` presents as a manifest bug.
 10. Install (picks up sharp).
 11. Generate the icons — all 11 PNGs from the source SVG.
-12. **Verify version injection, then revert it.** Run `inject-versions` and confirm it replaced
-    the three placeholders. This is a verification only: immediately
-    `git checkout -- public/sw.mjs` to restore them. The committed `sw.mjs` keeps the
-    placeholders; injection is a build step and the injected copy is never committed.
+12. Verify version injection in a temporary copy or save the pre-injection working
+    file and restore only those generated values. Preserve authored changes; do not
+    check out the entire file from Git. The committed worker keeps its placeholders.
 13. Print the verification checklist:
-    - [ ] `public/manifest.json` exists, `short_name.length ≤ 12`
+    - [ ] `public/manifest.json` exists and its display name is usable
     - [ ] `theme_color === background_color`
     - [ ] all 11 icon PNGs present under `public/icons/`
     - [ ] `inject-versions` resolved all three placeholders — **then reverted**
@@ -101,10 +100,9 @@ One batched `AskUserQuestion`:
 
 ## Non-negotiables
 
-- **`short_name` ≤ 12 characters.** Chrome truncates beyond that. Reject a longer value at the
-  question rather than writing it and flagging it later.
-- **The icon purpose split.** 72–384 are `"any maskable"`; 512 is `"any"`. Chrome's
-  installability check depends on it.
+- Prefer a short display name; twelve characters is a starter convention.
+- Include 192px and 512px ordinary icons. Maskable artwork is optional and must
+  satisfy the safe-zone/background requirements in `[[wf-web-pwa]]`.
 - **`{ type: 'module' }`** on the registration call, because `sw.mjs` is an ES module.
 - **`sw.mjs` lives in `public/`**, not under `src/`, so it is served from the origin root with
   root scope.

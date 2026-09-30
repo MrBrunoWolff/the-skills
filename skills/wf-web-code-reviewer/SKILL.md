@@ -3,7 +3,7 @@ name: wf-web-code-reviewer
 description: Reviewer charter plus interview-style grilling pattern for web repos — Next.js App Router + React 19 + React Compiler + Tailwind 4 + bun, optional PWA and password gate. Defines what is CRITICAL (blocks the PR), WARNING (asks the author), and SUGGESTION (informational), and how the review is conducted — one question at a time, walking the decision tree, recording ADRs as architectural decisions crystallise. Loaded by the wf-web-code-reviewer agent, which /wf-web-create-pr delegates to.
 ---
 
-# wf-web Reviewer Charter
+# Web reviewer charter
 
 The rules a web diff is reviewed against, and the procedure for conducting the review.
 
@@ -11,13 +11,19 @@ Three severity tiers — **CRITICAL** (blocks the PR), **WARNING** (asks the aut
 proceeding), **SUGGESTION** (informational). Cite `file:line` for every finding. Never flag
 something you have not verified against the actual code.
 
+Read the repository's instructions and resolve the detected framework and script
+surface before applying the catalog. An interview-style review is the default;
+when the user requests a one-shot review, deliver verified findings directly.
+Use plain English, lead with the effect of each finding, and omit attribution
+footers. Do not manufacture a question when the code already supplies the answer.
+
 Rules below reference tools by role, not by name where the repo might differ — resolve the
 repo's actual script surface first (`[[wf-web-check-quality]]`). A rule about a gate the repo
 does not have does not apply.
 
 ---
 
-## Review style: GRILLING (interview, not report dump)
+## Review style: discuss one decision at a time
 
 This reviewer does **not** dump a static report. It conducts the review as a focused interview:
 walk down the diff one branch of the decision tree at a time, surface one finding at a time,
@@ -81,7 +87,7 @@ Then emit the **Final report** (shape below). The command that invoked the revie
 |---|---|---|
 | C1 | A `package.json` script calling a package manager other than the one the repo's lockfile declares. | Mixed managers break CI and local dev, and produce a second lockfile. |
 | C2 | A `packageManager` field naming a different manager than the lockfile. | Same. |
-| C3 | Lockfile drift: `package.json` changed but the lockfile did not, or vice versa. | The lockfile becomes a lie and CI hits unreproducible installs. |
+| C3 | A frozen install fails because the lockfile and declared dependency specs disagree. | Unreproducible installs. A lockfile-only transitive refresh or metadata-only manifest change is not itself a defect. |
 | C4 | A new top-level dependency that duplicates an existing one (`lodash` + `lodash-es`, `date-fns` + `dayjs`, `axios` + `ofetch`). | Bundle bloat and two ways to do one thing. |
 | C5 | A change to `bunfig.toml` that removes or weakens `minimumReleaseAge` or `ignoreScripts`. | Those are the repo's supply-chain guards. Weakening one needs an explicit, recorded reason — not a drive-by. |
 
@@ -91,10 +97,10 @@ See `[[wf-web-pwa]]` for the full rules.
 
 | # | Rule | Why |
 |---|---|---|
-| C6 | Manifest `short_name` longer than 12 characters. | Chrome truncates beyond that; the extra characters are a name nobody sees. |
+| C6 | Manifest names or icons fail the app’s documented install experience. | A twelve-character name is a starter preference, not a validity limit. |
 | C7 | `theme_color !== background_color` in `manifest.json`. | The two must match the splash background; a mismatch is a visible flash on launch. |
-| C8 | The `public/sw.mjs` diff contains **only** the auto-generated version lines (`APP_VERSION` / `BUILD_TIME` / `GIT_COMMIT` flipped from placeholders to values, or churned between values). | An accidentally-committed build artifact. The committed file must keep its placeholders; the build injects real values. Discard with `git checkout -- public/sw.mjs`. **Placeholders in the committed file are correct — never flag those as a defect.** |
-| C9 | The icon set breaks the `"any maskable"` for 72–384 / `"any"` for 512 invariant. | Chrome's installability check depends on the exact split. |
+| C8 | In a repo with build-time SW injection, the diff contains only generated `APP_VERSION` / `BUILD_TIME` / `GIT_COMMIT` values. | Report the generated lines and preserve authored logic when restoring placeholders. Do not discard an entire working file. |
+| C9 | Required 192px/512px icons are missing or maskable artwork fails its safe zone. | Validate the actual manifest and artwork; an eight-size purpose split is not required. |
 
 ### Auth gate — only if the repo has one
 
@@ -183,8 +189,10 @@ proposed and never shipped.
    Zero hits makes it a candidate, not a verdict. Rendered text is often composed at runtime
    (`` `${actual} of ${available} available` ``) or served from a fixture, so a literal-only
    grep produces false positives on both sides.
-2. **Revert to decide** — restore the changed source to the target branch and re-run:
-   `git checkout <target> -- src/ && <test command>`
+2. **Compare in isolation** — create a temporary checkout of the target branch,
+   apply the new test without its implementation, install the baseline's
+   dependencies, and run the relevant test. Do not replace `src/` in the author's
+   working tree or stash unrelated changes.
    An assertion that does not fail under revert does not guard the change.
 3. **Classify:**
    - **Phantom** — the string cannot be produced on either branch. **Delete it, or replace it
@@ -307,8 +315,9 @@ To stay fast and focused:
 - Deploy-preview availability, Lighthouse scores, cross-browser visual differences — runtime,
   not code review.
 
-If any of those results indicate failure, the PR command blocks **before** invoking the
-reviewer.
+The PR command applies its documented gate policy before invoking the reviewer.
+Warnings such as dead-code findings may be reviewed; failed correctness gates
+remain blocking unless the user explicitly accepts a recorded exception.
 
 ## Cross-references
 

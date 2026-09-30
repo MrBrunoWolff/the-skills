@@ -1,0 +1,8 @@
+# Local security analysis: dependencies, credentials, context, and findings.
+.deepsec/
+
+# Local credentials; keep placeholder-only examples publishable.
+.env
+.env.*
+!.env.example
+!.env.*.example

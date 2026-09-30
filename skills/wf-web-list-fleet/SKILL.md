@@ -22,13 +22,33 @@ and `jq`; if either is missing, that enrichment is skipped with a warning rather
 
 Repos are found under a **fleet root**, resolved in this order:
 
-1. `$WF_ROOT`, if set.
-2. The `root` key in `wf-fleet.json` (see below).
-3. **The parent directory of the current repo** — i.e. if you are in `~/personal/my-app`, the
+1. `$WORKSPACES_CHECKOUT_ROOT`, when `$WORKSPACES_MANIFEST` is set (see explicit membership below).
+2. `$WF_ROOT`, if set.
+3. The `root` key in `wf-fleet.json` (see below).
+4. **The parent directory of the current repo** — i.e. if you are in `~/personal/my-app`, the
    root is `~/personal`. This is the default and needs no configuration.
 
-A directory under the root is a **fleet repo** if it contains both `.git/` and `package.json`.
+A directory under the root is a **fleet repo** if it contains both `.git` (file or directory) and `package.json`.
 Everything else is ignored.
+
+### Explicit workspace membership
+
+When the caller supplies a workspace manifest, use only its `repositories`
+entries. Accept an explicit manifest path and checkout root in the request, or
+read `WORKSPACES_MANIFEST` and `WORKSPACES_CHECKOUT_ROOT` from the environment.
+The manifest is a version-1 JSON object with a `repositories` array of
+`name`, relative `path`, and `url` entries. Resolve paths inside the supplied
+checkout root; reject duplicate or escaping paths. Report missing checkouts.
+Do not scan siblings or include repositories absent from this manifest.
+When a manifest is supplied but its root is missing, ask for the root rather
+than falling back to sibling discovery.
+
+This membership restriction applies to every workflow using this fleet contract.
+For the web profile, identify which members contain package.json and mark the
+others as outside the web profile; keep them visible in the inventory. Do not
+invent a JavaScript setup for them. The registry can still add deploy metadata,
+but cannot expand explicit workspace membership. Keep private manifests outside
+this public skills repository. Use `workspace-clone` to populate missing repos.
 
 ---
 
@@ -97,7 +117,7 @@ This is what replaces a hardcoded per-repo quirk table. **Detect, never assume.*
 | **Monorepo** | A `workspaces` array in `package.json`, or a `pnpm-workspace.yaml`. Record the workspace globs — several skills must iterate them rather than acting on the root manifest alone. |
 | **Available scripts** | `Object.keys(pkg.scripts)`. **Run only what exists.** Never invent an equivalent for a missing script, and never substitute a different tool. |
 | **Deploy target** | `.vercel/project.json` → Vercel (it also carries `projectId` / `orgId`) · `wrangler.jsonc`/`wrangler.toml` → Cloudflare · neither → none. |
-| **Default branch** | `git symbolic-ref --short refs/remotes/origin/HEAD` → strip the `origin/` prefix. Falls back to `main`. **Never hardcode a branch name.** |
+| **Default branch** | `git symbolic-ref --short refs/remotes/origin/HEAD` → strip the `origin/` prefix. If missing, resolve from repository instructions or hosting metadata; report unresolved branches. |
 | **Remote slug** | `git remote get-url origin`, parsed to `<owner>/<repo>` — this is what `gh --repo` needs. Never guess an owner. |
 | **PWA** | `public/manifest.json` exists. If so, read `short_name`, `theme_color`, `background_color`. |
 
@@ -113,7 +133,7 @@ And for the rest of the profile:
 ```bash
 pm()      { [ -f bun.lock ] && echo bun && return; [ -f pnpm-lock.yaml ] && echo pnpm && return; \
             [ -f package-lock.json ] && echo npm && return; [ -f yarn.lock ] && echo yarn && return; echo none; }
-default_branch() { git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || echo main; }
+default_branch() { git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'; }
 slug()    { git remote get-url origin 2>/dev/null | sed -E 's|.*[:/]([^/]+/[^/]+?)(\.git)?$|\1|'; }
 ```
 
@@ -133,7 +153,7 @@ binary in `node_modules/.bin`** — which some health checkers flag. So:
 ## Default output
 
 ```
-🚀 main
+main
 
   my-app                            [bun · Next.js · Vercel · PWA "MyApp"]
     Prod:    https://www.example.com/
@@ -142,12 +162,12 @@ binary in `node_modules/.bin`** — which some health checkers flag. So:
   my-worker                         [bun · Cloudflare Workers]
     Prod:    https://worker.example.com/
 
-🧪 demos
+demos
 
   my-demo                           [bun · Vite]
     (no deploy configured)
 
-🧱 libraries (no deploy)
+libraries (no deploy)
 
   my-ui                             [bun · library · monorepo]
     shared components, consumed by the apps above

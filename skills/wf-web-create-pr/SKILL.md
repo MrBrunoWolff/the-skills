@@ -19,30 +19,58 @@ else echo "No lockfile."; exit 1; fi
 command -v "$PM" >/dev/null 2>&1 || { echo "ERROR: $PM required."; exit 1; }
 
 TARGET=${TARGET:-$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')}
-TARGET=${TARGET:-main}
 SLUG=$(git remote get-url origin | sed -E 's|.*[:/]([^/]+/[^/]+?)(\.git)?$|\1|')
 ```
 
-**Never hardcode a branch name.** A fleet can mix `main`-only repos with `main` + `staging`
-promotion flows; the symbolic ref is the only thing that knows which this is. `$ARGUMENTS` may
-override the target.
+Resolve the target from the explicit request, repository instructions, or the
+remote default branch. If `origin/HEAD` is missing, query
+`gh repo view --json defaultBranchRef` or ask; do not silently assume `main`.
+For a promotion between long-lived branches, use the repository's documented
+release flow. Do not invent a staging/production branch pair or release counter.
 
-Refuse to run outside a web repo — `package.json` with a framework dependency. For a Python or
-infra repo, use the generic PR flow.
+Use the web checks for repositories with a detected web stack. For libraries,
+documentation, Python, or infrastructure, keep the Git, writing, and review flow
+and run their own documented checks. Skip web-only checks that do not apply.
+
+## Writing and PR conventions
+
+- Lead with the problem and resulting behavior. Describe the final diff for a
+  reader who has not seen the conversation. Keep simple changes to a few sentences.
+- Use plain English and concrete verbs. Avoid slogans, repeated summaries,
+  decorative emoji, and claims stronger than the evidence.
+- Keep titles stable: describe the change, with dependency versions in the body.
+  A release counter or version that is the subject of the work may stay in a title.
+- Omit AI-attribution footers and AI co-author trailers unless the user requests
+  them. Preserve actual human authorship and existing repository requirements.
+- State the merge method immediately after the summary. Use a short NOTE for a
+  normal squash merge, or CAUTION when the documented flow requires preserving
+  history. Confirm enabled merge methods; do not change protection rules here.
+- Use at most one GitHub alert of each type. Keep temporary run status out of
+  the durable description. Remove a resolved warning rather than narrating it.
+- Preserve template headings and order. Add only sections relevant to the change.
+  Mark checks as passed, failed, or not run; never present planned checks as results.
+- Use full links for cross-repository references. A bare `#N` is appropriate only
+  when it intentionally refers to that numbered issue or PR in this repository.
 
 ## Workflow
 
 ### Step 1–2 — Branches and status
 
-Confirm a clean tree and that the branch is pushed. Confirm the target branch resolved above is
-the one the author intends — state it, do not silently assume.
+Read Git status, the source branch, the target, and the diff. Preserve unrelated
+working-tree changes and stage explicit paths only. Do not require an unrelated
+change to be discarded before creating this PR. State the source and target.
+
+For regular PRs, bring the feature branch up to date using the repository's
+documented method. For a promotion, do not merge the destination back into the
+source just to make their histories match. Never merge the PR as part of creation.
 
 ### Step 2.5 — Environment preflight
 
 Abort on failure unless explicitly overridden:
 
-1. `$PM install --frozen-lockfile` — the lockfile must match `package.json`. If it drifted,
-   surface the diff and ask whether to commit the updated lockfile first.
+1. Use the frozen-install procedure in `wf-web-check-quality` once. It selects
+   `npm ci`, Yarn's version-appropriate mode, or the manager's frozen flag.
+   If the install fails, report it before proceeding to checks that require it.
 2. If the repo ships a PWA, check for untracked artifacts that should have been committed:
    ```bash
    git ls-files --others --exclude-standard public/icons/ public/sw.mjs public/manifest.json \
@@ -55,7 +83,7 @@ Extract the web-specific signals from the diff. Each one is a surface with its o
 
 | Signal | Where | Why it matters |
 |---|---|---|
-| Manifest changed | `public/manifest.json` | `short_name` ≤ 12; `theme_color === background_color`; icon list aligned |
+| Manifest changed | `public/manifest.json` | name usable on target devices; splash colors intentional; icon list aligned |
 | Service worker changed | `public/sw.mjs` | The committed copy must **keep** its placeholders. A diff of only the three version lines is a build artifact — see Step 3.6 |
 | Icon set changed | `public/icons/*.png` | Must stay the 8 PWA + 3 favicon set |
 | Auth path touched | the gate's lib, proxy/middleware, `/auth` routes | Highest-risk surface in the repo |
@@ -71,7 +99,7 @@ rather than assuming it. If the repo has a composite `check` script, that plus `
 and `audit` is the whole gate; do not also re-run `check`'s constituents.
 
 Collect **all** exit codes. **Block on:** lint · typecheck · tests · a health-score
-**regression** against the target branch (re-run there and compare) · a **new high/critical
+**regression** against the target branch (compare in an isolated checkout) · a **new high/critical
 advisory**.
 
 **Warn but allow:** dead-code findings — surface them under "Known follow-ups". Override with
@@ -85,15 +113,17 @@ absolute score with no baseline is not actionable.
 
 Only if `manifest.json`, `sw.mjs`, or `public/icons/**` changed.
 
-1. Parse the post-change manifest and assert `short_name.length ≤ 12`,
-   `theme_color === background_color`, all 11 icon paths exist on disk, and the
-   `"any maskable"` (72–384) / `"any"` (512) split holds.
+1. Validate names and intended splash colors, plus 192px and 512px ordinary icons.
+   Check maskable artwork against its safe zone when present. Twelve characters
+   and the eight-icon purpose split are starter conventions, not validity rules.
 2. **Service-worker version lines are build-injected, never committed.**
    - **Placeholders present in the committed file = correct. Do not block on them.**
    - **If the only change to `sw.mjs` is those three auto-generated lines** — flipped from
      placeholders to values, or churned between values — it is an accidentally-committed build
-     artifact. Block: "discard with `git checkout -- public/sw.mjs`; the deploy build injects
-     these." Override only if the author states the bump is intentional.
+     artifact in a repo that uses this injection scheme. Report the specific
+     generated lines. Restore only those lines while preserving any authored SW
+     edits; do not discard the entire working file. An intentional version bump
+     should be recorded as such.
    - **Real SW logic changes** (cache lists, fetch strategy) are reviewed normally.
 3. Verify the static-asset allowlist still covers `/sw.mjs`, `/manifest.json`, `/icons/`,
    `/theme-init.js`, `/favicon.ico`. If the proxy/middleware changed, re-check it did not
@@ -169,7 +199,7 @@ A reasonable default when the repo has none:
 - typecheck ✅   test ✅ (M tests)   doctor ✅ score N (Δ +/-)   audit ✅
 
 ## PWA (only if manifest/sw/icons touched)
-- Manifest: short_name "…" (≤12 ✅), theme_color === background_color ✅
+- Manifest: name "…", splash colors verified
 - Service worker: placeholders retained ✅ — no bare version-line churn
 - Icons: 11/11 present ✅
 
@@ -190,13 +220,13 @@ A reasonable default when the repo has none:
 ## Known follow-ups
 ```
 
-If an issue reference applies, put it at the **top**, before the template.
+Put issue references in the template's designated section or alongside the
+summary. Keep the merge-method alert immediately after the summary.
 
 > ### Two writing rules for the body
 >
-> - **Never write a bare `#N`.** GitHub autolinks it to whatever issue or PR carries that
->   number in this repo, which is almost never what you meant. Write "audit items 2 and 3", or
->   a full URL when you really do mean a specific issue.
+> - Write "audit items 2 and 3" for numbered findings. Use `#N` only for an
+>   intentional reference to an issue or PR in this repository.
 > - **Do not add a co-author trailer** to commits or PRs on personal repos unless the user asks
 >   for one. If the session's attribution guidance says otherwise, that guidance wins — but the
 >   default here is none.
@@ -219,15 +249,16 @@ labels** (`gh label list`). Never invent or auto-create one.
 | auth / security-sensitive file touched | the repo's security label |
 | a promotion PR between long-lived branches | the repo's release label |
 
-Always include **at least one type label** — the dominant one for a mixed diff, defaulting to
-`enhancement`. Stack secondary labels on top. Drop any that does not exist on the repo, silently
-but with a note.
+Use the dominant type label and applicable secondary labels that already exist
+in the repository. Report unavailable labels; a repository without a matching
+label does not require inventing one or substituting `enhancement`.
 
 #### 5.4 — Assignee
 
-Always `@me`. The author owns the PR until merge. Not flag-controlled.
+Assign `@me` unless the user or repository specifies another owner. Apply the
+assignee on creation and verify it afterward.
 
-### Step 6 — Preview and confirm
+### Step 6 — Review the concrete draft
 
 ```
 Source → Target:  <branch> → <target>
@@ -236,20 +267,28 @@ Assignee:         @me
 Labels:           enhancement, dependencies
 Body:             <preview>
 
-Create this PR? (yes / modify / cancel)
 ```
+
+If the user already requested PR creation and all required decisions are
+resolved, proceed. Ask only for missing choices or explicit waivers needed by
+the quality/review gates. Do not add a second permission step to an authorized
+request.
 
 ### Step 7 — Create
 
 ```bash
 gh pr create --repo "$SLUG" --base "$TARGET" --head "$(git branch --show-current)" \
-  --title "$TITLE" --body "$BODY" --assignee "@me" \
+  --title "$TITLE" --body "Description pending." --assignee "@me" \
   --label "enhancement" --label "dependencies"
+gh pr edit "$PR_NUMBER" --repo "$SLUG" --body-file "$PR_BODY_FILE"
+gh pr view "$PR_NUMBER" --repo "$SLUG" --json url,assignees,labels,body
 ```
 
-One `--label` flag per label — a comma list breaks on labels containing spaces or emoji. If
-creation fails with `could not add label: 'X' not found`, retry without it and warn. Never
-`gh label create`.
+Write the reviewed description to a temporary file with real newlines. Capture
+the created PR number before editing. Pass one `--label` per label from the
+computed set; the labels above are examples. If editing fails, report the
+existing PR and retry that edit, not creation. Before retrying a failed create,
+check whether the PR already exists. Do not create labels here.
 
 ### Step 8 — Report
 

@@ -1,6 +1,6 @@
 ---
 name: wf-web-pwa
-description: File templates for a production PWA setup in a Next.js app — manifest.json shape (8 PWA icons + 3 favicons, short_name <= 12, theme/background match), sw.mjs (static + dynamic cache, stale-while-revalidate, version-busted via build-time placeholders), register-sw.js, theme-init.js, and the two scripts (generate-pwa-assets.mjs using sharp, inject-sw-versions.mjs). Knowledge only; the action is /wf-web-setup-pwa.
+description: File templates for a production PWA setup in a Next.js app — manifest.json shape (8 PWA icons + 3 favicons, short display name, theme/background match), sw.mjs (explicit public-asset cache, stale-while-revalidate, version-busted via build-time placeholders), register-sw.js, theme-init.js, and the two scripts (generate-pwa-assets.mjs using sharp, inject-sw-versions.mjs). Knowledge only; the action is /wf-web-setup-pwa.
 ---
 
 # wf-web PWA — canonical setup
@@ -34,26 +34,27 @@ Nothing here hardcodes either.
   "prefer_related_applications": false,
   "categories": ["business"],
   "icons": [
-    { "src": "/icons/icon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-96x96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-96x96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
 ```
 
-**Hard rules:**
+**Starter conventions:**
 
-- `short_name.length` ≤ 12. Chrome truncates beyond roughly 12 characters, so a longer value is
-  simply a name nobody ever sees in full.
+- Prefer a short display name; 12 characters is a starter convention, not a manifest validity limit.
 - `theme_color === background_color`, and both match the splash background in `layout.tsx`.
   A mismatch is a visible flash on PWA launch.
-- 72–384 are `"any maskable"`; 512 is `"any"`. Chrome's installability check relies on this
-  exact split — changing it is how an app silently stops being installable.
+- Include 192px and 512px ordinary icons. Add a separate maskable icon only after
+  checking its safe zone and full background; no particular eight-size purpose split
+  is required. See [manifest guidance](https://web.dev/articles/add-manifest) and
+  [maskable icons](https://web.dev/articles/maskable-icon).
 
 ### `public/sw.mjs`
 
@@ -63,7 +64,7 @@ Use `__APP_VERSION__`, `__BUILD_TIME__`, `__GIT_COMMIT__` as **string placeholde
 > **The committed `sw.mjs` must always keep the placeholders.** Injection happens at build and
 > deploy; the injected copy is a build artifact and must never be committed — committing it
 > freezes the cache version and churns the file on every local build. After a local build,
-> discard it (`git checkout -- public/sw.mjs`) before committing. A `sw.mjs` diff consisting
+> restore only the injected version values before committing, preserving authored edits. A `sw.mjs` diff consisting
 > **only** of those three version lines is not merge-worthy.
 
 ```js
@@ -71,11 +72,10 @@ const APP_VERSION = '__APP_VERSION__';
 const BUILD_TIME = '__BUILD_TIME__';
 const GIT_COMMIT = '__GIT_COMMIT__';
 const CACHE_VERSION = `${APP_VERSION}-${GIT_COMMIT}-${BUILD_TIME}`;
-const STATIC_CACHE = `static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
+const CACHE_PREFIX = 'app-pwa-static-'; // Choose a stable prefix unique to this app.
+const STATIC_CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/icons/favicon-16x16.png',
   '/icons/favicon-32x32.png',
@@ -90,67 +90,43 @@ const STATIC_ASSETS = [
   '/icons/icon-512x512.png',
 ];
 
-const DYNAMIC_ROUTES = ['/api/'];
-
-const isDynamicData = (url) => DYNAMIC_ROUTES.some((r) => url.includes(r));
-const isStaticAsset = (url) =>
-  STATIC_ASSETS.some((a) => url.endsWith(a)) ||
-  /\.(?:js|css|png|webp|svg|jpg|ico)$/.test(url);
-const isPWAAsset = (url) => url.endsWith('manifest.json') || url.includes('/icons/');
-const isCacheableRequest = (req) =>
-  req.method === 'GET' && req.url.startsWith(self.location.origin);
-
-const safeCacheResponse = async (cache, request, response) => {
-  try {
-    if (response && response.status === 200 && isCacheableRequest(request)) {
-      await cache.put(request, response.clone());
-    }
-  } catch (error) {
-    console.error('Error caching response:', error);
-  }
+// Only explicitly public assets are cached. Pages and API responses remain network-only.
+const isCacheableRequest = (request) => {
+  const url = new URL(request.url);
+  return request.method === 'GET' && url.origin === self.location.origin &&
+    !url.search && STATIC_ASSETS.includes(url.pathname);
 };
-
+const safeCacheResponse = async (cache, request, response) => {
+  if (response.status !== 200 || response.redirected || !isCacheableRequest(request)) return;
+  const control = response.headers.get('cache-control') || '';
+  if (/private|no-store/i.test(control)) return;
+  await cache.put(request, response.clone());
+};
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting()),
-  );
+  event.waitUntil(caches.open(STATIC_CACHE).then(async (cache) => {
+    for (const path of STATIC_ASSETS) {
+      const request = new Request(new URL(path, self.location.origin));
+      await safeCacheResponse(cache, request, await fetch(request));
+    }
+  }).then(() => self.skipWaiting()));
 });
-
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => !k.endsWith(CACHE_VERSION)).map((k) => caches.delete(k)),
-      ),
-    ).then(() => self.clients.claim()),
-  );
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== STATIC_CACHE)
+      .map(key => caches.delete(key)),
+  )).then(() => self.clients.claim()));
 });
-
 self.addEventListener('fetch', (event) => {
   if (!isCacheableRequest(event.request)) return;
-  const url = event.request.url;
-
-  if (isDynamicData(url)) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request)),
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request).then(async (response) => {
-        const cache = await caches.open(
-          isStaticAsset(url) || isPWAAsset(url) ? STATIC_CACHE : DYNAMIC_CACHE,
-        );
-        await safeCacheResponse(cache, event.request, response);
-        return response;
-      });
-      return cached || network;
-    }),
-  );
+  const network = fetch(event.request).then(async response => {
+    const cache = await caches.open(STATIC_CACHE);
+    await safeCacheResponse(cache, event.request, response);
+    return response;
+  });
+  event.waitUntil(network.then(() => undefined, () => undefined));
+  event.respondWith(caches.open(STATIC_CACHE).then(async cache =>
+    (await cache.match(event.request)) || network,
+  ));
 });
 ```
 
@@ -241,7 +217,8 @@ run().catch((err) => {
 });
 ```
 
-PWA icons keep a transparent background (the maskable purpose expects it); favicons get an
+Ordinary icons may have a transparent background; maskable icons need a full background
+and verified safe-zone artwork. Favicons get an
 opaque one so they do not disappear against a dark browser chrome.
 
 ### `scripts/inject-sw-versions.mjs`

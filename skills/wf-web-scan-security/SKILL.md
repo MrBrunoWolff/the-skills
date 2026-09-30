@@ -1,159 +1,98 @@
 ---
 name: wf-web-scan-security
-description: Run a deepsec (vercel-labs/deepsec) agent-powered vulnerability scan on a bun web repo — bootstraps or reuses the .deepsec/ workspace, converts the pnpm scaffold to bun, runs the free regex scan, reports the candidate count and STOPS for approval before the paid AI investigation, then summarises findings without committing them.
+description: Run an on-demand DeepSec source-security scan in a selected repository, inspect coverage and candidates, and investigate within the user's authorized scope. Keep credentials and reports local; this is separate from dependency audits and publication secret checks.
 ---
 
-# wf-web-scan-security — deepsec scan for a web repo
+# Scan source security with DeepSec
 
-An on-demand security audit with [`vercel-labs/deepsec`](https://github.com/vercel-labs/deepsec).
+Use the explicit target repo or the current repository. Read `wf-web-deepsec` when
+available, plus the installed DeepSec `SKILL.md` and relevant docs. Check the
+installed CLI's help; flags and initialization behavior change.
 
-**Reference knowledge:** `[[wf-web-deepsec]]` — the bun conversion, the `.deepsec/` layout,
-credentials, git policy and the cost model. deepsec's own skill and docs ship inside the
-workspace (`.deepsec/node_modules/deepsec/SKILL.md` and `dist/docs/`) — **read those for any
-question about deepsec's own flags or config**; do not paraphrase them from memory.
+## Choose the run scope
 
-**Arguments:** `$ARGUMENTS` — optionally a repo name and/or a diff scope. Default target is the
-current repo.
+An ordinary `deepsec init` can install, connect to a provider, generate context,
+scan, and start an AI investigation. Do not use it as if it only creates files.
+For a local pattern scan, use scaffold-only mode and run scan explicitly.
 
-## Preflight
-
-```bash
-command -v bun >/dev/null 2>&1 || {
-  echo "ERROR: bun is required. curl -fsSL https://bun.sh/install | bash"; exit 1; }
+```sh
+bunx deepsec init --plan --output json
+bunx deepsec init --scaffold-only
 ```
 
-Never use `npx`, `pnpm` or `npm` here. deepsec's docs and CLI quickstart both print pnpm
-instructions — ignore them and substitute per the table in the skill.
+Use the caller's preferred runner; Bun is an option, not a requirement for the
+scanned project. Reuse an existing workspace. Do not force initialization over
+handwritten context or existing findings.
 
-## Step 1 — Locate or bootstrap the workspace
+## Prepare the local workspace
 
-```bash
-ls .deepsec/deepsec.config.ts 2>/dev/null && echo "workspace exists" || echo "needs init"
+Keep `.deepsec/` ignored for an ad hoc publication review. If the caller requests
+versioned scan inputs, use DeepSec's generated ignore rules and stage only reviewed
+configuration/context. Credentials, dependency trees, and findings stay untracked.
+
+Install only inside the isolated workspace. For Bun, change its generated
+`packageManager`, remove newly generated pnpm-only workspace/lock files, and run
+`bun install`. Preserve existing files if this is a reused workspace. Never add a
+root package manifest to a documentation/Python repo merely to run the scanner.
+
+Read `data/<id>/SETUP.md` and complete `INFO.md` from the actual codebase: purpose,
+auth shape, threat model, project-specific risks, and known test placeholders.
+Keep it short. Read writing-matchers docs before adding any matcher; do not invent
+speculative rules simply to produce candidates.
+
+Run a dependency advisory check only if the target actually has dependencies and
+an applicable manager/audit command. Skip and explain it for documentation-only or
+standard-library projects. A source scan does not replace package advisory data.
+
+## Local scan and coverage
+
+From `.deepsec/`, use the installed binary without an incidental network fetch:
+
+```sh
+./node_modules/.bin/deepsec scan --project-id <id>
+./node_modules/.bin/deepsec status --project-id <id>
 ```
 
-**If it exists**, reuse it — do not re-init. (`init` refuses a non-empty workspace without
-`--force`, and `--force` would overwrite a hand-written `INFO.md`, which is the expensive part.)
-Confirm the project is registered and skip to Step 3:
+Report the active matchers, covered languages/files, and candidate count. Zero
+candidates is not a finding that all source is safe. Markdown workflows, unusual
+languages, unrecognized manifests, and Git history may require manual review or a
+separate credential check. State uncovered surfaces explicitly.
 
-```bash
-cd .deepsec && bunx deepsec status
+For a publication review, inspect publishable tracked, staged, unstaged, and
+untracked files, plus Git history. Search for actual credential values, private
+keys, credential-bearing URLs, private repo names, and machine-specific paths.
+Report locations and categories without printing secret values. Distinguish
+placeholder-only examples from live credentials.
+
+## Investigation
+
+If the user already requested an AI audit and specified its scope/budget, proceed
+within those limits. Otherwise, complete the local scan, report candidates and
+coverage, then ask before starting billable model investigation. Explain that
+this additional choice comes from the tool's separate scan/process stages.
+
+Read current process help before choosing diff scope, limits, model, reasoning,
+and authentication. Local subscriptions are supported in current DeepSec; use the
+selected CLI's existing login when that is the caller's choice. Provider keys
+remain in the ignored workspace or environment, never inline command arguments.
+
+```sh
+./node_modules/.bin/deepsec process --project-id <id> --diff <base-ref>
+./node_modules/.bin/deepsec report --project-id <id>
 ```
 
-**If it does not**, bootstrap and immediately convert the pnpm scaffold to bun — `deepsec init`
-has no package-manager flag, so this correction is not optional:
+Revalidation is another model-backed operation; run it when within the authorized
+scope. Do not upload source to a sandbox or create/link a cloud project as an
+incidental step of a local scan.
 
-```bash
-bunx deepsec init
-cd .deepsec
-rm -f pnpm-workspace.yaml pnpm-lock.yaml
-bun --eval '
-  const p = "package.json";
-  const j = JSON.parse(await Bun.file(p).text());
-  j.packageManager = "bun@" + Bun.version;
-  await Bun.write(p, JSON.stringify(j, null, 2) + "\n");
-'
-bun install
-```
+## Findings and fixes
 
-Verify before continuing:
+Read each cited file before confirming a finding. Report impact, evidence,
+location, and uncertainty; distinguish confirmed issues from hypotheses and
+coverage gaps. Do not suppress findings just to improve a count.
 
-```bash
-test ! -e pnpm-workspace.yaml && test ! -e pnpm-lock.yaml && test -f bun.lock \
-  && echo "bun-only OK" || echo "FAIL: pnpm artefacts remain"
-bunx deepsec --version
-```
-
-To add more fleet repos to one workspace (which is what enables cross-project `metrics`), use
-`bunx deepsec init-project ../../<repo>` — never hand-edit the `projects` array.
-
-## Step 2 — Credentials
-
-`process` needs a model provider. If `.deepsec/.env.local` has no key, **stop and ask** rather
-than starting a run that will fail on auth:
-
-```bash
-grep -qE '^(AI_GATEWAY_API_KEY|ANTHROPIC_AUTH_TOKEN|OPENAI_API_KEY)=.+' .deepsec/.env.local 2>/dev/null \
-  && echo "credential present" || echo "MISSING — see [[wf-web-deepsec]] § Credentials"
-```
-
-It goes in `.deepsec/.env.local` (already gitignored) — never in the scanned repo's
-`.env.local`, and never inline in a command.
-
-## Step 3 — Project setup context (first run only)
-
-deepsec's finding quality depends on `data/<id>/INFO.md`, hand-written context about the
-codebase. On a first run, read `data/<id>/SETUP.md` and follow it — it tells you to read
-deepsec's own `SKILL.md` and then fill `INFO.md` from the target codebase. **Do not skip this
-and then judge the tool by its output.**
-
-## Step 4 — Run the free audit first
-
-Before paying anything, run the repo's dependency advisory gate (`bun run audit`, or
-`bun audit --audit-level=high`). It is free, instant, and answers the question deepsec never
-asks. Prune first so it reads the real tree:
-
-```bash
-bun prune && bun run audit
-```
-
-## Step 5 — Scan (free) and STOP
-
-```bash
-cd .deepsec
-bunx deepsec scan --project-id <id>
-bunx deepsec status --project-id <id>
-```
-
-`scan` is regex matchers only — no AI, no cost. **Report the candidate count and stop here.**
-That count is what the next step bills for.
-
-Do not run `process` unprompted. Say what the scan found, roughly what processing would cost
-(per-candidate agent investigation, at `--thinking-level xhigh` by default), and let the user
-choose:
-
-- **Diff-scoped** — the right default for anything routine. `--diff <ref>` (e.g. the target
-  branch, for PR scope), `--diff-staged`, or `--diff-working`.
-- **Full audit** — every pending candidate. A deliberate, paid choice.
-- **Otherwise scoped** — `--limit`, `--filter`, `--only-slugs`, or a lower `--thinking-level`.
-  For an exploratory pass, drop the thinking level before dropping scope.
-
-## Step 6 — Investigate (paid, only once approved)
-
-```bash
-bunx deepsec process --project-id <id>                        # full
-bunx deepsec process --project-id <id> --diff origin/main     # PR scope
-bunx deepsec process --project-id <id> --diff-working         # uncommitted
-
-bunx deepsec revalidate --project-id <id>   # optional; cuts false positives
-bunx deepsec report --project-id <id>
-```
-
-`revalidate` also checks git history for fixes that already landed, so it is worth running
-before presenting anything.
-
-## Step 7 — Present findings
-
-Summarise **in the response**, most severe first. For each: what it is, the `file:line`, and
-whether you confirmed it by reading the code.
-
-Findings are AI-generated hypotheses:
-
-- Treat each as a **starting hypothesis**; read the file before confirming.
-- Never dismiss one without evidence from the code in question.
-- Separate **confirmed** from **needs-human-review**, and say which is which.
-- For a confirmed issue that cannot be fixed now, propose an issue with the rule, `file:line`,
-  impact and suggested fix.
-
-**Do not commit findings.** `data/*/reports/` and any `export` directory are unfixed
-vulnerability write-ups. If you use `export`, put the output outside the repo.
-
-## Guardrails
-
-- **Never add deepsec to `[[wf-web-check-quality]]`.** That suite is free, deterministic and
-  runs on every PR; this costs money and returns probabilistic findings.
-- **Never `git add -A` here** — a fresh `.deepsec/` is a large untracked tree containing
-  `node_modules/`. Stage explicit paths.
-- **Do not fix a security finding and land it silently.** Report first; a real vulnerability fix
-  is its own PR with its own review.
-
-User intent / overrides: $ARGUMENTS
+Keep reports and exports local. Report a confirmed issue before changing it;
+apply a fix when the user's request covers remediation. Otherwise present the
+concrete fix for review. Do not commit or push security findings or fixes merely
+because a scan was requested. DeepSec remains on demand, outside the routine
+`wf-web-check-quality` suite. User scope: $ARGUMENTS.

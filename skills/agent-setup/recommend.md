@@ -56,14 +56,15 @@ For monorepos, scan one level deep (`apps/*`, `packages/*`) and union the detect
 
 ## 4. Compose the recommendation
 
-1. Start with all **general / project** tier skills from the matrix.
+1. Start with the workflows needed for the user's current work, usually 3–5
+   project skills. General/project entries are candidates, not a mandatory bundle.
 2. Add the tier rows matching each detected stack (respect sub-conditions like "web (next)").
 3. Enforce **one skill per concern** — if two candidates cover the same concern, only the
    catalog-preferred one survives. Mention the alternative in a footnote only.
 4. List **general / global** tier skills separately as "install once in `~/.claude/skills`" —
    these are about the user, not the repo, and duplicating them per-project causes trigger conflicts.
-5. **Budget: max ~12 project skills.** Every installed skill's description occupies agent context
-   permanently; more skills = worse triggering. If over budget, drop the least stack-relevant first.
+5. Keep the selection small and explain additions that overlap an existing skill.
+   Use ~12 project skills as a ceiling for a broad setup, not a target.
 
 ## 5. Present, confirm, install
 
@@ -73,8 +74,9 @@ Present a plan table before touching anything:
 | Skill | Source | Concern | Scope | Why |
 ```
 
-Plus a short "skipped" list (already installed / collision / over budget / alternative lost to a
-preferred pick). Wait for explicit confirmation.
+Plus a short skipped list: already installed, source collision, redundant, or out
+of scope. Apply selections already covered by the user's request; ask when a
+material preference or new source choice is unresolved.
 
 On confirmation, install **specific skills**, not whole repos:
 

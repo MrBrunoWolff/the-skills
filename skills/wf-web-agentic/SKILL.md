@@ -65,6 +65,9 @@ An experimental Lighthouse category scoring how well a site supports machine int
 currently advisory — it gathers signals rather than issuing a ranking. Treat it as **INFO**,
 never a blocking gate, until Chrome stabilises it.
 
+Current Chrome guidance requires Chrome 150+ for the category and WebMCP origin-trial
+registration for WebMCP audits. Check the linked scoring documentation before running.
+
 What it measures, and the app change that satisfies it:
 
 | Signal group | Check | What to do |
@@ -128,5 +131,5 @@ There is no stable Lighthouse CLI flag for this category yet, so run it through
 - `[[wf-web-create-pr]]` — surfaces the agentic-readiness INFO check in the PR flow
 - `[[wf-web-check-quality]]` — points here for the live audit
 - `[[wf-web-code-reviewer]]` — adds agentic readiness as a review dimension
-- `[[web-design-guidelines]]` / `[[modern-web-guidance]]` — the a11y and modern-API guidance the
+- `web-design-guidelines` / `modern-web-guidance` (optional external skills, if installed) — the a11y and modern-API guidance the
   agent-a11y signals lean on
