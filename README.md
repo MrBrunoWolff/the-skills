@@ -108,3 +108,5 @@ agents/
 
 Each skill is a directory under `skills/` containing a `SKILL.md` with `name` and `description` in
 its frontmatter — the format the `skills` CLI scans for.
+
+[`wf-web-lighthouse`](skills/wf-web-lighthouse/SKILL.md) covers production Lighthouse scores, browser traces, reproducible budgets, Chrome DevTools MCP setup, and separate PWA checks.
