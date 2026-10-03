@@ -4,6 +4,8 @@ Personal [agent skills](https://skills.tools) by [@MrBrunoWolff](https://github.
 installable with the [`skills`](https://github.com/vercel-labs/skills) CLI — the same tool used for
 `vercel-labs/agent-skills`, `mattpocock/skills`, etc.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+
 ## Install
 
 ```bash
