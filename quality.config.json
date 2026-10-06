@@ -1,0 +1,18 @@
+{
+  "tier": "rich",
+  "bun": "1.4.2",
+  "node": "24.x",
+  "stages": {
+    "code": [
+      [
+        "node",
+        "scripts/check-repository.mjs"
+      ],
+      [
+        "bun",
+        "test",
+        "skills/workspace-clone/tests"
+      ]
+    ]
+  }
+}
