@@ -36,6 +36,18 @@ pnpm  → corepack enable pnpm
 > running anything. The fix is to delete the stray one — the one that is **not** committed —
 > never to touch the tracked lockfile.
 
+## Canonical CI contract
+
+Prefer `check:ci` when the repository defines it. Read the script and any stage configuration,
+run the matching frozen install, then execute the contract once and collect every stage result.
+Do not substitute a mutating `check` for validation or re-run gates already covered by the
+contract. For repositories without an aggregate, use the script discovery below.
+
+Require zero lint warnings/errors and zero Knip findings/configuration hints where installed.
+A React Doctor score must be measured at 100/100 after a complete scan; a missing score is not
+success. Keep stack-specific diagnostics and package-age policy. Report whether a failure also
+exists on the default branch so dependency maintenance is distinguishable from feature regressions.
+
 ## The script surface
 
 Look each of these up **by name in `package.json`**. Run the ones that exist, in this order —
