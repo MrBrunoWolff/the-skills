@@ -1,0 +1,182 @@
+[
+  {
+    "id": "search-01",
+    "prompt": "Find which module exports the application bootstrap function.",
+    "expected": "search"
+  },
+  {
+    "id": "search-02",
+    "prompt": "List the JSON fixtures used by the billing unit tests.",
+    "expected": "search"
+  },
+  {
+    "id": "search-03",
+    "prompt": "Count the route handlers under apps/api and give their paths.",
+    "expected": "search"
+  },
+  {
+    "id": "search-04",
+    "prompt": "Read the release notes and summarize the breaking changes without evaluating them.",
+    "expected": "search"
+  },
+  {
+    "id": "search-05",
+    "prompt": "Locate every caller of parseAddress; return locations only.",
+    "expected": "search"
+  },
+  {
+    "id": "search-06",
+    "prompt": "Identify the configured Node version from committed files.",
+    "expected": "search"
+  },
+  {
+    "id": "search-07",
+    "prompt": "Show the shell command used for the production build.",
+    "expected": "search"
+  },
+  {
+    "id": "search-08",
+    "prompt": "Find the test containing the exact text session expired.",
+    "expected": "search"
+  },
+  {
+    "id": "search-09",
+    "prompt": "List environment variable names referenced by the upload module, without values.",
+    "expected": "search"
+  },
+  {
+    "id": "search-10",
+    "prompt": "Read the failed compiler output and list the filenames mentioned.",
+    "expected": "search"
+  },
+  {
+    "id": "search-11",
+    "prompt": "Map where the checkout button component is imported; make no changes.",
+    "expected": "search"
+  },
+  {
+    "id": "search-12",
+    "prompt": "Find the design document titled Authentication Review and report its path only.",
+    "expected": "search"
+  },
+  {
+    "id": "implementation-01",
+    "prompt": "Rename the supplied helper from loadPrefs to readPrefs and update its call sites.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-02",
+    "prompt": "Run the documented lint command and fix only unused imports.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-03",
+    "prompt": "Add a regression test using the supplied reproduction and expected assertion.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-04",
+    "prompt": "Update README installation commands from npm to bun as specified.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-05",
+    "prompt": "Replace the listed HTTP endpoints with the supplied paths; leave request behavior unchanged.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-06",
+    "prompt": "Implement the approved design: add the exact nullable nickname field to the schema and form.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-07",
+    "prompt": "Fix the reported TypeScript errors by applying the supplied property-name mapping.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-08",
+    "prompt": "Change the test timeout from 5000 to 10000 in the three named fixtures.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-09",
+    "prompt": "Apply the reviewed patch to the two named components and run their tests.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-10",
+    "prompt": "Refactor the repeated static CSS classes into the supplied shared constant.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-11",
+    "prompt": "Update dependency versions to the explicitly provided versions and run the existing quality suite.",
+    "expected": "implementation"
+  },
+  {
+    "id": "implementation-12",
+    "prompt": "Security review is already done. Add the exact input-length check described below and test the specified boundary.",
+    "expected": "implementation"
+  },
+  {
+    "id": "judgment-01",
+    "prompt": "Review this authentication diff for authorization bypasses and regressions.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-02",
+    "prompt": "Determine why writes sometimes disappear after a successful transaction; the cause is unknown.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-03",
+    "prompt": "Choose an architecture for offline synchronization with concurrent device edits.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-04",
+    "prompt": "Investigate an intermittent test failure that no one has reproduced reliably.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-05",
+    "prompt": "Compare tenant isolation approaches and recommend one with explicit trade-offs.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-06",
+    "prompt": "Assess whether the migration can lose customer data under concurrent requests.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-07",
+    "prompt": "Find the root cause of steadily increasing memory usage in production.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-08",
+    "prompt": "Review caching behavior for correctness when the active account changes.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-09",
+    "prompt": "Decide whether this service should use queues or synchronous calls given the failure modes.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-10",
+    "prompt": "Evaluate the API compatibility risks before selecting a versioning strategy.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-11",
+    "prompt": "Diagnose why a request is charged twice even though idempotency keys match.",
+    "expected": "judgment"
+  },
+  {
+    "id": "judgment-12",
+    "prompt": "Review the proposed cryptographic token format and identify security flaws.",
+    "expected": "judgment"
+  }
+]

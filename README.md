@@ -45,6 +45,13 @@ credentials stay with the caller. Clone and application setup are separate:
 after cloning, read each project's own instructions before installing its tools
 or dependencies. Existing skills remain available for users who need them.
 
+[`codex-model-routing`](skills/codex-model-routing/SKILL.md) installs optional
+Codex profiles, scoped agents and a Jev routing adviser from a caller-owned
+workspace manifest. It selects available account models, generates machine-local
+paths, backs up changed files and leaves ordinary Codex defaults untouched.
+Personal model preferences, keys, real prompts and reports stay outside this
+public skill. Installation is explicit; adding the skill alone activates nothing.
+
 ### Repo setup
 
 | skill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | what it does |
