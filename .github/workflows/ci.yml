@@ -10,17 +10,52 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  release-policy:
+    name: Dependency release policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "24.x"
+          package-manager-cache: false
+      - name: Check new dependency resolutions
+        env:
+          DEPENDENCY_POLICY_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+          DEPENDENCY_SECURITY_UPDATE: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'security') }}
+        run: node .github/scripts/check-dependency-releases.mjs
+
   quality:
-    name: Quality Gates
+    needs: release-policy
+    name: Repository validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: '24.x'
+          node-version: "24.x"
           package-manager-cache: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: '1.4.2'
+          bun-version: "1.4.2"
       - run: node scripts/quality.mjs
+
+  gates:
+    name: Quality Gates
+    if: always() && github.event_name != 'schedule'
+    needs: [quality, release-policy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require repository validation and release policy
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module <<'JS'
+          const results = JSON.parse(process.env.RESULTS);
+          if (Object.values(results).some(job => job.result !== 'success')) process.exit(1);
+          JS
