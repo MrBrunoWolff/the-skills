@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -24,9 +25,14 @@ jobs:
           package-manager-cache: false
       - name: Check new dependency resolutions
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPENDENCY_POLICY_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
           DEPENDENCY_SECURITY_UPDATE: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'security') }}
-        run: node .github/scripts/check-dependency-releases.mjs
+        run: |
+          if ! git cat-file -e "$DEPENDENCY_POLICY_BASE^{commit}" 2>/dev/null; then
+            git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch --no-tags --depth=1 origin "$DEPENDENCY_POLICY_BASE"
+          fi
+          node .github/scripts/check-dependency-releases.mjs
 
   quality:
     needs: release-policy
@@ -35,6 +41,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.x"
