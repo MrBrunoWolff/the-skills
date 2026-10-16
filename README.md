@@ -22,6 +22,7 @@ Use Node.js/npm for `npx`, or the equivalent `bunx skills@latest add ...` comman
 ## Features
 
 - Manifest-based workspace cloning that preserves existing checkouts.
+- Optional Codex profiles, scoped agents and model routing from caller-owned settings.
 - Stack-aware agent setup and dependency maintenance.
 - Repository inventory, quality checks, security reviews and pull-request workflows.
 - Web performance, PWA and browser verification guidance.

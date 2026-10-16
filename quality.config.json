@@ -12,6 +12,12 @@
         "bun",
         "test",
         "skills/workspace-clone/tests"
+      ],
+      [
+        "node",
+        "--test",
+        "skills/codex-model-routing/tests/install.test.mjs",
+        "skills/codex-model-routing/tests/router.test.mjs"
       ]
     ]
   }

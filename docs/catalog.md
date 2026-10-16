@@ -27,6 +27,12 @@ or dependencies. Existing skills remain available for users who need them.
 
 ### Repo setup
 
+[`codex-model-routing`](../skills/codex-model-routing/SKILL.md) installs optional
+Codex profiles, scoped agents and a Jev routing adviser from a caller-owned
+manifest. It preserves ordinary Codex defaults and keeps keys, machine paths
+and private preferences outside this public repository. Installing the skill
+alone does not activate its configuration.
+
 | skill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | what it does                                                                                                                                                                                                                                                                                                 |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`agent&#8209;setup`](../skills/agent-setup/SKILL.md)             | Make a repo agent-ready in opt-in phases: stack-aware curated skill installs, a context-management playbook **and quality gates** (lint/typecheck/react-doctor/…) in `CLAUDE.md`, a permissions allowlist, deterministic hooks (incl. vendored-skill write protection), and supply-chain release-age guards. |
