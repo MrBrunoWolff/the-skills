@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { buildPlan, install, installationStatus } from '../scripts/install.mjs';
 
 function fixture(t) {
-  const base = mkdtempSync(join(tmpdir(), 'routing install ')); t.after(() => rmSync(base, { recursive: true, force: true }));
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'routing install '))); t.after(() => rmSync(base, { recursive: true, force: true }));
   const root = join(base, 'checkouts with spaces'); const codexHome = join(base, 'codex home');
   mkdirSync(join(root, 'example'), { recursive: true }); mkdirSync(codexHome);
   const manifest = join(base, 'manifest.json'); writeFileSync(manifest, JSON.stringify({ version: 1, name: 'sample', repositories: [{ name: 'example', path: 'example' }] }));

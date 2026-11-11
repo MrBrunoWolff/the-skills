@@ -18,6 +18,11 @@
         "--test",
         "skills/codex-model-routing/tests/install.test.mjs",
         "skills/codex-model-routing/tests/router.test.mjs"
+      ],
+      [
+        "node",
+        "--test",
+        "skills/native-behavior/tests/session.test.mjs"
       ]
     ]
   }

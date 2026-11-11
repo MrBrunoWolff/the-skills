@@ -25,6 +25,14 @@ credentials stay with the caller. Clone and application setup are separate:
 after cloning, read each project's own instructions before installing its tools
 or dependencies. Existing skills remain available for users who need them.
 
+### Native apps
+
+[`native-behavior`](../skills/native-behavior/SKILL.md) builds a platform-free
+Swift/JVM behavior core shared by native views and headless runners. It includes
+one persistent JSON session driver, scenario testing guidance and native
+contract/toolchain practices. Adopt a tested feature slice in an existing app;
+keep platform integrations and device/visual validation in the native hosts.
+
 ### Repo setup
 
 [`codex-model-routing`](../skills/codex-model-routing/SKILL.md) installs optional

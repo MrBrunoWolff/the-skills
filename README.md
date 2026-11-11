@@ -33,6 +33,10 @@ See the [skills and agent catalog](docs/catalog.md) for individual workflows, in
 
 Each skill has its own `SKILL.md` with name and description frontmatter. Preserve its interface, validate local links and run tests for changed executable helpers. Follow [AGENTS.md](AGENTS.md) when contributing.
 
+## Native apps
+
+[`native-behavior`](skills/native-behavior/SKILL.md) extracts a platform-free Swift/JVM core, drives the real native behavior through a persistent JSON CLI, and verifies shared scenarios while retaining device and visual checks. It includes a reusable process driver and native toolchain/contract guidance.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
